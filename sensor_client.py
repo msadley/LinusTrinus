@@ -1,4 +1,4 @@
-import asyncore
+import asyncio
 import logging
 import socket
 import struct
@@ -6,25 +6,36 @@ from threading import Thread
 
 log = logging.getLogger(__name__)
 
-
-class SensorClient(Thread, asyncore.dispatcher):
+class SensorClient(Thread):
     buffer_size = 1024
     data = None
 
     def __init__(self, server, server_port=5555, callback_objects=()):
         Thread.__init__(self)
-        asyncore.dispatcher.__init__(self)
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
 
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connect((server, server_port))
-
+        self.reader, self.writer = None, None
         self.callback = [i.callback for i in callback_objects]
 
-    def run(self):
-        asyncore.loop()
+        self.connect(server, server_port)
 
-    def handle_read(self):
-        self.on_data(self.recv(self.buffer_size))
+    def run(self):
+        self.loop.run_forever()
+
+    async def connect(self, server, server_port):
+        self.reader, self.writer = await asyncio.open_connection(server, server_port, loop=self.loop)
+        self.handle_read()
+
+    async def handle_read(self):
+        while True:
+            try:
+                data = await self.reader.read(self.buffer_size)
+                if not data:
+                    break
+                self.on_data(data)
+            except (asyncio.CancelledError, ConnectionResetError):
+                break
 
     def on_data(self, data):
         self.data = self.decode_pos(data)
@@ -73,4 +84,4 @@ class SensorClient(Thread, asyncore.dispatcher):
     def split_list(lst, group_len):
         data_len = len(lst)
         kol_in_group = data_len // group_len
-        return [lst[i : i + kol_in_group] for i in range(0, data_len, kol_in_group)]
+        return [lst[i:i + kol_in_group] for i in range(0, data_len, kol_in_group)]
