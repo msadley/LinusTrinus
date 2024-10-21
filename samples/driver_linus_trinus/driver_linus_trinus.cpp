@@ -75,7 +75,13 @@ public:
     }
 
     virtual ~CSampleDeviceDriver() = default;
-
+    
+    virtual bool ComputeInverseDistortion(vr::HmdVector2_t *pResult, vr::EVREye eEye, uint32_t unChannel, float fU, float fV) override {
+        if (pResult) {
+            pResult->v[0] = fU;
+            pResult->v[1] = fV;
+        }
+    }
 
     EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) override {
         m_unObjectId = unObjectId;
